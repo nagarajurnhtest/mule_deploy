@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:workday="http://www.mulesoft.org/schema/mule/workday"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/workday http://www.mulesoft.org/schema/mule/workday/current/mule-workday.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<workday:config name="Workday_Config" doc:name="Workday Config" doc:id="dea5f917-ec5d-4b30-8777-cb506587c2bf" >
+		<workday:basic-authentication-api-connection password="${workday.password}" userName="${workday.username}" hostName="${workday.hostname}" tenantName="${workday.tenant}"/>
+	</workday:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="2212527c-4992-4d54-b93c-071d4b378b1c" file="dev.yaml" />
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="aa5ab6f8-4965-44bd-b823-d43b1d7efe48" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="mule-cloudhub2-deployFlow" doc:id="5dbf4828-c67b-4f91-94fe-f12036d306e3" >
+		<http:listener doc:name="Listener" doc:id="dadc7606-543e-4330-8670-d62b656287bc" config-ref="HTTP_Listener_config" path="/test"/>
+		<ee:transform doc:name="vqueryParams" doc:id="70697e76-0d63-4bf6-827f-1815e760d9ba" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="vqueryParams" ><![CDATA[
+%dw 2.0
+output application/java
+var toTime= attributes.queryParams.toTime splitBy "-"
+var fromTime= attributes.queryParams.fromTime splitBy "-"
+---
+{
+	count: attributes.queryParams.count,
+	fromTime: fromTime[0] ++ "-" ++ fromTime[1] ++ "-" ++ fromTime[2] ++ "T" ++ fromTime[3][0 to 1] ++ ":" ++ fromTime[3][2 to 3] ++ ":00.290-07:00" ,
+	toTime: toTime[0] ++ "-" ++ toTime[1] ++ "-" ++ toTime[2] ++ "T" ++ toTime[3][0 to 1] ++ ":" ++ toTime[3][2 to 3] ++ ":00.290-07:00",
+	
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="inputPayload" doc:id="7f137320-1300-4047-a3a8-fc038f49d728" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 urn:com.workday/bsvc
+---
+{
+	ns0#Get_Workers_Request: {
+		ns0#Request_Criteria: {
+			ns0#Exclude_Inactive_Workers: false,
+			ns0#Transaction_Log_Criteria_Data:
+		{
+			ns0#Transaction_Date_Range_Data:
+			{
+ 				ns0#Updated_From: vars.vqueryParams.fromTime,
+				ns0#Updated_Through:vars.vqueryParams.toTime
+			}
+		}
+		},
+		ns0#Response_Filter:
+		{
+			ns0#Page: 1,
+			ns0#Count: vars.vqueryParams.count
+		},
+		
+		
+		ns0#Response_Group: {
+			ns0#Include_Reference: true,
+			ns0#Include_Personal_Information: true
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<workday:human-resources operation="Get_Workers" doc:name="Human resources" doc:id="bf608f62-33cb-4936-b0ab-8a37375f0966" config-ref="Workday_Config"/>
+		<ee:transform doc:name="vPages" doc:id="33ac2e0a-c8c9-494f-ad8f-65b482338fef" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="vPages" ><![CDATA[output application/json
+---
+2 to payload."Get_Workers_Response"."Response_Results"."Total_Pages"]]></ee:set-variable>
+				<ee:set-variable variableName="vPayload" ><![CDATA[output application/json
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<parallel-foreach doc:name="Parallel For Each" doc:id="75b90e1c-5d35-4fba-9df4-eab472f27df5" collection="#[vars.vPages]">
+			<set-variable value="payload" doc:name="vCount" doc:id="3116d7ab-bd70-475c-a080-5996e11cec23" variableName="vCount"/>
+			<ee:transform doc:name="inputPayload" doc:id="98438d2d-9b89-4dc1-94ac-9a07fbe478c6" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 urn:com.workday/bsvc
+---
+{
+	ns0#Get_Workers_Request: {
+		ns0#Request_Criteria: {
+			ns0#Exclude_Inactive_Workers: false,
+			ns0#Transaction_Log_Criteria_Data:
+		{
+			ns0#Transaction_Date_Range_Data:
+			{
+ 				ns0#Updated_From: vars.vqueryParams.fromTime,
+				ns0#Updated_Through:vars.vqueryParams.toTime
+			}
+		}
+		},
+		ns0#Response_Filter:
+		{
+			ns0#Page: payload,
+			ns0#Count: vars.vqueryParams.count
+		},
+		
+		
+		ns0#Response_Group: {
+			ns0#Include_Reference: true,
+			ns0#Include_Personal_Information: true
+		}
+	}
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<workday:human-resources operation="Get_Workers" doc:name="Human resources1" doc:id="33ca6fb7-471f-4caa-a5d7-84cabb6a320a" config-ref="Workday_Config" />
+		</parallel-foreach>
+		<set-payload value="#[output application/json&#10;---&#10;vars.vPayload]" doc:name="Set Payload" doc:id="2b5d05fd-0cd9-4635-8b40-913a509bb778" />
+	
+	</flow>
+</mule>

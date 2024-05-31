@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<settings>
+
+  <pluginGroups>
+    <pluginGroup>org.mule.tools</pluginGroup>
+  </pluginGroups>
+
+  <servers>
+	<server>
+		<username>~~~Client~~~</username>
+		<password>8e002f13ae19467cbb133fb5be3c24e7~?~522785F7712B4c7484986dd4d01796Af</password>
+		<id>exchange-connected-app-v3</id>
+	  </server>
+  </servers>
+
+  <profiles>
+	<profile>	
+		<properties>
+		  <org.id>479147d8-b281-4376-b131-517cee7fb2dc</org.id>
+		</properties>
+		<repositories>
+		  <repository>
+			<id>exchange-connected-app-v3</id>
+			<name>Corporate Repository</name>
+			<url>https://maven.anypoint.mulesoft.com/api/v3/organizations/${org.id}/maven</url>
+		  </repository>
+		  <repository>
+			<id>exchange-connected-app-v2</id>
+			<name>Corporate Repository</name>
+			<url>https://maven.anypoint.mulesoft.com/api/v2/organizations/${org.id}/maven</url>
+		  </repository>
+		</repositories>
+		<id>exchange-repos</id>
+	  </profile>
+  </profiles>
+
+	<activeProfiles>
+    <activeProfile>exchange-repos</activeProfile>
+  </activeProfiles>
+  
+</settings>
